@@ -31,7 +31,7 @@ safety_settings = [
 
 # config for gemini
 generation_config = {
-  "temperature": 0.6, #Randomness. 0 unrandom, 1 random
+  "temperature": 0.6, #Randomness: 0 unrandom, 1 random
   "top_p": 1,# samples tokens with the highest probability scores until the sum of the scores reaches the specified threshold value. 
   "top_k": 50, # samples tokens with the highest probabilities until the specified number of tokens is reached.
   "max_output_tokens": 8192,
@@ -134,7 +134,6 @@ def build_chroma_collection(
             metadatas=metadatas[start_idx:end_idx],
         )
 
-
 # chroma_car_reviews_dict = prepare_car_reviews_data(DATA_PATH)
 
 # t0 = time.time()
@@ -164,8 +163,9 @@ batch_size = 1000  # Adjust the batch size based on the dataset size and memory 
 current_start = 0
 
 print("Begin to query the collection.")
+input1 = input("定義範圍(英文 Ex:Find me some great reviews about Volvo): ")
 reviews = collection.query(
-    query_texts=["Find me some bad reviews about Volvo"],
+    query_texts=[input1],
     n_results=100,
     include=["documents"],
     where={"Rating": {"$gte": 3}},
@@ -178,10 +178,11 @@ chat_session = model.start_chat(
   history=[
   ]
 )
-question = "Summarize by Volvo models only. And rank model by customer reviews from worst to best"
+
+question = input("細向GenAI分析 (Ex: Rank by model from best to worst in terms of performance): ")
 
 context = f"""
-You are a customer success employee at a large car dealership. Use the following car reviews to answer questions: {reviews_str}
+You are a customer success employee at a large car dealership. Use the following car reviews to answer questions: {reviews_str}. Always provide your source in quotes when you use data that is provided to you. Never create new data. 
 """
 
 prompt = context + "\n" + question
