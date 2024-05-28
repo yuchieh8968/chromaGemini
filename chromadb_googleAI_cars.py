@@ -182,8 +182,11 @@ chat_session = model.start_chat(
 question = input("細向GenAI分析 (Ex: Rank by model from best to worst in terms of performance): ")
 
 context = f"""
-You are a customer success employee at a large car dealership. Use the following car reviews to answer questions: {reviews_str}. Always provide your source in quotes when you use data that is provided to you. Never create new data. 
-"""
+You are a customer success employee at a large car dealership. 
+Use the following car reviews to answer questions: {reviews_str}. 
+Always provide your source in quotes when you use data that is provided to you only. 
+Never use information outside of provided information. 
+Never generate any new data."""
 
 prompt = context + "\n" + question
 

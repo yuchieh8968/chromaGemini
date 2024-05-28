@@ -209,7 +209,7 @@ question = "Summarize by worst reviewed flights destinations with Air Canada."
 
 context = f"""
 You are a customer service agent specializes in airline customer reviews. Use the following flight reviews to answer questions: {reviews_str}. 
-Always provide source of your answers fom the provided reviews.
+Always provide your source in quotes when you use data that is provided to you only. 
 Never use information outside of provided information. 
 Never generate any new data.
 """
