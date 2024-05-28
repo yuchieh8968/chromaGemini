@@ -46,7 +46,7 @@ model = genai.GenerativeModel(
 )
 
 # setup API key
-genai.configure(api_key="AIzaSyDl-2CPRht4D5IGrwJu-kyNVZeNHeytRBo")
+genai.configure(api_key="")
 
 # specify paths and variables
 DATA_PATH = "./archive/*"
