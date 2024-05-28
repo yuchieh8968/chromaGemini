@@ -38,15 +38,17 @@ generation_config = {
   "response_mime_type": "text/plain",
 }
 
+#specify which gemini model to use
 model = genai.GenerativeModel(
   model_name="gemini-1.5-flash",
   safety_settings=safety_settings,
   generation_config=generation_config,
 )
 
+# setup API key
 genai.configure(api_key="AIzaSyDl-2CPRht4D5IGrwJu-kyNVZeNHeytRBo")
 
-
+# specify paths and variables
 DATA_PATH = "./archive/*"
 CHROMA_PATH = "./car_review_embeddings"
 EMBEDDING_FUNC_NAME = "multi-qa-MiniLM-L6-cos-v1"
@@ -157,19 +159,19 @@ embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
 collection = client.get_collection(name=COLLECTION_NAME, embedding_function=embedding_func)
 
 # Retrieve all reviews in batches to create a comprehensive context
-great_reviews = []
+reviews = []
 batch_size = 1000  # Adjust the batch size based on the dataset size and memory limits
 current_start = 0
 
 print("Begin to query the collection.")
-good_reviews = collection.query(
+reviews = collection.query(
     query_texts=["Find me some bad reviews about Volvo"],
     n_results=100,
     include=["documents"],
     where={"Rating": {"$gte": 3}},
 )
 
-reviews_str = ",".join(good_reviews["documents"][0])
+reviews_str = ",".join(reviews["documents"][0])
 print("Finished querying the collection.")
 
 chat_session = model.start_chat(
