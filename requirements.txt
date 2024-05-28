@@ -1,0 +1,6 @@
+chromadb
+pathlib
+polars
+more-itertools
+sentence-transformers
+google-generativeai

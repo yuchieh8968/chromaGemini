@@ -8,6 +8,8 @@ import json
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
 import time
+
+# safety settings for Gemini
 safety_settings = [
   {
     "category": "HARM_CATEGORY_HARASSMENT",
@@ -27,6 +29,7 @@ safety_settings = [
   },
 ]
 
+# config for gemini
 generation_config = {
   "temperature": 1,
   "top_p": 0.95,
@@ -40,7 +43,8 @@ model = genai.GenerativeModel(
   safety_settings=safety_settings,
   generation_config=generation_config,
 )
-genai.configure(api_key="KEY")
+
+genai.configure(api_key="AIzaSyDl-2CPRht4D5IGrwJu-kyNVZeNHeytRBo")
 
 
 DATA_PATH = "./archive/*"
@@ -129,7 +133,7 @@ def build_chroma_collection(
         )
 
 
-#chroma_car_reviews_dict = prepare_car_reviews_data(DATA_PATH)
+# chroma_car_reviews_dict = prepare_car_reviews_data(DATA_PATH)
 
 # t0 = time.time()
 # print(f"start building chroma at {t0}")
@@ -159,7 +163,7 @@ current_start = 0
 
 print("Begin to query the collection.")
 good_reviews = collection.query(
-    query_texts=["Find me some good reviews about Subaru"],
+    query_texts=["Find me some bad reviews about Volvo"],
     n_results=100,
     include=["documents"],
     where={"Rating": {"$gte": 3}},
@@ -168,14 +172,11 @@ good_reviews = collection.query(
 reviews_str = ",".join(good_reviews["documents"][0])
 print("Finished querying the collection.")
 
-
-print("Initiating Google Gemini..." + reviews_str)
-
 chat_session = model.start_chat(
   history=[
   ]
 )
-question = "Summarize by models. And rank best subaru model by customer review"
+question = "Summarize by Volvo models only. And rank model by customer reviews from worst to best"
 
 context = f"""
 You are a customer success employee at a large car dealership. Use the following car reviews to answer questions: {reviews_str}
@@ -184,4 +185,4 @@ You are a customer success employee at a large car dealership. Use the following
 prompt = context + "\n" + question
 
 response = chat_session.send_message(prompt)
-print(response.text)
+print("---------------------------------------------------------\nGemini:\n"+response.text)
