@@ -1,4 +1,2 @@
-/archive/
-/car_review_embeddings/
-/flight_review_embeddings/
-Airline_review.csv
+*.csv
+/*
