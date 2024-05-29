@@ -3,8 +3,6 @@ import pathlib
 import polars as pl
 from more_itertools import batched
 from chromadb.utils import embedding_functions
-import os
-import json
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
 import time
@@ -46,7 +44,6 @@ model = genai.GenerativeModel(
 )
 
 # setup API key
-genai.configure(api_key="")
 
 # specify paths and variables
 DATA_PATH = "./Airline_review.csv"
@@ -194,27 +191,27 @@ current_start = 0
 print("Begin to query the collection.")
 reviews = collection.query(
     query_texts=["Find me some bad reviews about Air Canada"],
-    n_results=100,
-    include=["documents"],
+    n_results=50,
+    include=["documents", "metadatas"],
 )
 
 reviews_str = ",".join(reviews["documents"][0])
+metadata = str(reviews["metadatas"][0])
 print("Finished querying the collection.")
 
-chat_session = model.start_chat(
-  history=[
-  ]
-)
-question = "Summarize by worst reviewed flights destinations with Air Canada."
+question = "Show me 3 of the most angry and negative reviews."
 
 context = f"""
-You are a customer service agent specializes in airline customer reviews. Use the following flight reviews to answer questions: {reviews_str}. 
-Always provide your source in quotes when you use data that is provided to you only. 
-Never use information outside of provided information. 
-Never generate any new data.
+You are a customer service agent specializes in airline customer reviews. Use the following flight reviews to answer questions: {reviews_str} and its metadatas {metadata}. 
+You may summarize or rank the data if the question asked you to do so.
+You can only use the reviews and metadats provided to you to answer the question.
+You may start your answers with a short summary consists of 3 to 5 sentences. 
+You should provide proof from top 5 reviews you used to answer, and list the reviews' metadata.  
+You should not generate new reviews and metadata. 
+Ensure the reviews you used support your argument. 
 """
 
 prompt = context + "\n" + question
 
-response = chat_session.send_message(prompt)
+response = model.generate_content(prompt)
 print("---------------------------------------------------------\nGemini:\n"+response.text)

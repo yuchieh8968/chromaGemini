@@ -3,8 +3,6 @@ import pathlib
 import polars as pl
 from more_itertools import batched
 from chromadb.utils import embedding_functions
-import os
-import json
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
 import time
@@ -46,7 +44,6 @@ model = genai.GenerativeModel(
 )
 
 # setup API key
-genai.configure(api_key="")
 
 # specify paths and variables
 DATA_PATH = "./archive/*"
@@ -163,7 +160,7 @@ batch_size = 1000  # Adjust the batch size based on the dataset size and memory 
 current_start = 0
 
 print("Begin to query the collection.")
-input1 = input("定義範圍(英文 Ex:Find me some great reviews about Volvo): ")
+input1 = input("定義範圍(Ex:Find me some great reviews about Volvo): ")
 reviews = collection.query(
     query_texts=[input1],
     n_results=100,
@@ -174,21 +171,21 @@ reviews = collection.query(
 reviews_str = ",".join(reviews["documents"][0])
 print("Finished querying the collection.")
 
-chat_session = model.start_chat(
-  history=[
-  ]
-)
-
-question = input("細向GenAI分析 (Ex: Rank by model from best to worst in terms of performance): ")
+question = input("細項GenAI分析 (Ex: Rank by model from best to worst in terms of performance): ")
 
 context = f"""
 You are a customer success employee at a large car dealership. 
 Use the following car reviews to answer questions: {reviews_str}. 
-Always provide your source in quotes when you use data that is provided to you only. 
-Never use information outside of provided information. 
-Never generate any new data."""
+You may summarize or rank the data if the question asked you to do so.
+You can only use the reviews provided to you to answer the question.
+You may start your answers with a short summary consists of 1 to 3 sentences. 
+You should provide snippets from top 10 reviews you used to answer as proofs.  
+You should not generate new reviews. 
+Ensure the reviews you used support your argument. 
+If you can, try to reply in Traditional Chinese. 
+"""
 
 prompt = context + "\n" + question
 
-response = chat_session.send_message(prompt)
+response = model.generate_content(prompt)
 print("---------------------------------------------------------\nGemini:\n"+response.text)
