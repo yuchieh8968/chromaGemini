@@ -6,6 +6,10 @@ from chromadb.utils import embedding_functions
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
 import time
+import logging, os
+from dotenv import load_dotenv, find_dotenv
+_ = load_dotenv(find_dotenv()) # read local .env file
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # safety settings for Gemini
 safety_settings = [
@@ -44,6 +48,7 @@ model = genai.GenerativeModel(
 )
 
 # setup API key
+genai.configure(api_key=os.environ['GEMINI_KEY'])
 
 # specify paths and variables
 DATA_PATH = "./Airline_review.csv"
@@ -108,23 +113,27 @@ def prepare_airline_reviews_data(data_path: pathlib.Path, flight_years: list[int
         infer_schema_length=10000
     )
 
+    try:
+      # Filter on selected years and handle potential missing data
+      airline_review_db_data = (
+          airline_reviews.with_columns()
+          .filter(pl.col("Verified")=="TRUE")
+          .select(["Review_Title", "Review", "Overall_Rating", "Verified", "Airline Name"])
+          .sort(["Airline Name", "Overall_Rating"])
+          .collect()
+      )
 
-    # Filter on selected years and handle potential missing data
-    airline_review_db_data = (
-        airline_reviews.with_columns()
-        .filter(pl.col("Verified")=="TRUE")
-        .select(["Review_Title", "Review", "Overall_Rating", "Verified", "Airline Name"])
-        .sort(["Airline Name", "Overall_Rating"])
-        .collect()
-    )
+      # Create ids, documents, and metadatas data in the format ChromaDB expects
+      ids = [f"review{i}" for i in range(airline_review_db_data.shape[0])]
+      documents = airline_review_db_data["Review"].to_list()
+      metadatas = airline_review_db_data.drop("Review").to_dicts()
 
-    # Create ids, documents, and metadatas data in the format ChromaDB expects
-    ids = [f"review{i}" for i in range(airline_review_db_data.shape[0])]
-    documents = airline_review_db_data["Review"].to_list()
-    metadatas = airline_review_db_data.drop("Review").to_dicts()
+      return {"ids": ids, "documents": documents, "metadatas": metadatas}
 
-    return {"ids": ids, "documents": documents, "metadatas": metadatas}
-
+    except Exception as e:
+        logging.error(f"Error preparing car reviews data: {e}")
+        return {"ids": [], "documents": [], "metadatas": []}
+    
 def build_chroma_collection(
     chroma_path: pathlib.Path,
     collection_name: str,
@@ -152,7 +161,7 @@ def build_chroma_collection(
 
     for batch in batched(document_indices, 166):
         start_idx = batch[0]
-        end_idx = batch[-1] + 1  # Fix the end_idx to include the last document
+        end_idx = batch[-1] + 1 
 
         collection.add(
             ids=ids[start_idx:end_idx],
@@ -188,25 +197,26 @@ reviews = []
 batch_size = 1000  # Adjust the batch size based on the dataset size and memory limits
 current_start = 0
 
-print("Begin to query the collection.")
+
+logging.info("Beginning to query collection")
 reviews = collection.query(
-    query_texts=["Find me some bad reviews about Air Canada"],
-    n_results=50,
+    query_texts=["Great reviews about EVA Airway"],
+    n_results=100,
     include=["documents", "metadatas"],
 )
 
 reviews_str = ",".join(reviews["documents"][0])
 metadata = str(reviews["metadatas"][0])
-print("Finished querying the collection.")
+logging.info("Finished querying the collection")
 
-question = "Show me 3 of the most angry and negative reviews."
+question = "Show me 3 of the most positive reviews about EVA Airways."
 
 context = f"""
 You are a customer service agent specializes in airline customer reviews. Use the following flight reviews to answer questions: {reviews_str} and its metadatas {metadata}. 
 You may summarize or rank the data if the question asked you to do so.
 You can only use the reviews and metadats provided to you to answer the question.
 You may start your answers with a short summary consists of 3 to 5 sentences. 
-You should provide proof from top 5 reviews you used to answer, and list the reviews' metadata.  
+You should provide evidents from top 5 reviews you used to answer, and list the reviews' metadata.  
 You should not generate new reviews and metadata. 
 Ensure the reviews you used support your argument. 
 """

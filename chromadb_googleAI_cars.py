@@ -5,7 +5,11 @@ from more_itertools import batched
 from chromadb.utils import embedding_functions
 import google.generativeai as genai
 from sentence_transformers import SentenceTransformer
-import time
+import time, os
+from dotenv import load_dotenv, find_dotenv
+
+
+_ = load_dotenv(find_dotenv()) # read local .env file
 
 # safety settings for Gemini
 safety_settings = [
@@ -44,6 +48,7 @@ model = genai.GenerativeModel(
 )
 
 # setup API key
+genai.configure(api_key=os.environ['GEMINI_KEY'])
 
 # specify paths and variables
 DATA_PATH = "./archive/*"
@@ -131,7 +136,11 @@ def build_chroma_collection(
             metadatas=metadatas[start_idx:end_idx],
         )
 
-# chroma_car_reviews_dict = prepare_car_reviews_data(DATA_PATH)
+# try:
+#     chroma_car_reviews_dict = prepare_car_reviews_data(DATA_PATH)
+# except:
+#     print("Error preparing car reviews data")
+
 
 # t0 = time.time()
 # print(f"start building chroma at {t0}")
@@ -147,12 +156,14 @@ def build_chroma_collection(
 # print(f"finished building chroma at {t1}")
 # total = t1-t0
 # print(total)
-
-client = chromadb.PersistentClient(CHROMA_PATH)
-embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
+try:
+  client = chromadb.PersistentClient(CHROMA_PATH)
+  embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
         model_name=EMBEDDING_FUNC_NAME
     )
-collection = client.get_collection(name=COLLECTION_NAME, embedding_function=embedding_func)
+  collection = client.get_collection(name=COLLECTION_NAME, embedding_function=embedding_func)
+except:
+    print("Error connecting to chroma or PATH not found")
 
 # Retrieve all reviews in batches to create a comprehensive context
 reviews = []
@@ -160,18 +171,18 @@ batch_size = 1000  # Adjust the batch size based on the dataset size and memory 
 current_start = 0
 
 print("Begin to query the collection.")
-input1 = input("定義範圍(Ex:Find me some great reviews about Volvo): ")
+input1 = "Postive reviews about Volvo"
 reviews = collection.query(
     query_texts=[input1],
     n_results=100,
     include=["documents"],
-    where={"Rating": {"$gte": 3}},
+    where={"Rating": {"$gte": 1}},
 )
 
 reviews_str = ",".join(reviews["documents"][0])
 print("Finished querying the collection.")
 
-question = input("細項GenAI分析 (Ex: Rank by model from best to worst in terms of performance): ")
+question = "Recommend me a Volvo model if I want to prioritize comfort."
 
 context = f"""
 You are a customer success employee at a large car dealership. 
@@ -179,10 +190,9 @@ Use the following car reviews to answer questions: {reviews_str}.
 You may summarize or rank the data if the question asked you to do so.
 You can only use the reviews provided to you to answer the question.
 You may start your answers with a short summary consists of 1 to 3 sentences. 
-You should provide snippets from top 10 reviews you used to answer as proofs.  
+You should provide snippets from top 5 reviews you used to answer as proofs.  
 You should not generate new reviews. 
 Ensure the reviews you used support your argument. 
-If you can, try to reply in Traditional Chinese. 
 """
 
 prompt = context + "\n" + question
