@@ -79,95 +79,95 @@ def extract_year(date_str: str) -> int:
         return None
 
 def prepare_airline_reviews_data(data_path: pathlib.Path, flight_years: list[int] = [2017]):
-    """Prepare the airline reviews dataset for ChromaDB"""
+  """Prepare the airline reviews dataset for ChromaDB"""
 
-    # Define the schema to ensure proper data types are enforced
-    dtypes = {
-        "Id": pl.Int64,
-        "Airline Name": pl.Utf8,
-        "Overall_Rating": pl.Float64,
-        "Review_Title": pl.Utf8,
-        "Review Date": pl.Utf8,
-        "Verified": pl.Utf8,
-        "Review": pl.Utf8,
-        "Aircraft": pl.Utf8,
-        "Type Of Traveller": pl.Utf8,
-        "Seat Type": pl.Utf8,
-        "Route": pl.Utf8,
-        "Date Flown": pl.Utf8,
-        "Seat Comfort": pl.Float64,
-        "Cabin Staff Service": pl.Float64,
-        "Food & Beverages": pl.Float64,
-        "Ground Service": pl.Float64,
-        "Inflight Entertainment": pl.Float64,
-        "Wifi & Connectivity": pl.Float64,
-        "Value For Money": pl.Float64,
-        "Recommended": pl.Utf8
-    }
+  # Define the schema to ensure proper data types are enforced
+  dtypes = {
+    "Id": pl.Int64,
+    "Airline Name": pl.Utf8,
+    "Overall_Rating": pl.Float64,
+    "Review_Title": pl.Utf8,
+    "Review Date": pl.Utf8,
+    "Verified": pl.Utf8,
+    "Review": pl.Utf8,
+    "Aircraft": pl.Utf8,
+    "Type Of Traveller": pl.Utf8,
+    "Seat Type": pl.Utf8,
+    "Route": pl.Utf8,
+    "Date Flown": pl.Utf8,
+    "Seat Comfort": pl.Float64,
+    "Cabin Staff Service": pl.Float64,
+    "Food & Beverages": pl.Float64,
+    "Ground Service": pl.Float64,
+    "Inflight Entertainment": pl.Float64,
+    "Wifi & Connectivity": pl.Float64,
+    "Value For Money": pl.Float64,
+    "Recommended": pl.Utf8
+  }
 
     # Scan the airline reviews dataset(s)
-    airline_reviews = pl.scan_csv(
-        data_path, 
-        dtypes=dtypes, 
-        null_values="n",
-        infer_schema_length=10000
+  airline_reviews = pl.scan_csv(
+    data_path, 
+    dtypes=dtypes, 
+    null_values="n",
+    infer_schema_length=10000
+  )
+
+  try:
+    # Filter on selected years and handle potential missing data
+    airline_review_db_data = (
+      airline_reviews.with_columns()
+      .filter(pl.col("Verified")=="TRUE")
+      .select(["Review_Title", "Review", "Overall_Rating", "Verified", "Airline Name"])
+      .sort(["Airline Name", "Overall_Rating"])
+      .collect()
     )
 
-    try:
-      # Filter on selected years and handle potential missing data
-      airline_review_db_data = (
-          airline_reviews.with_columns()
-          .filter(pl.col("Verified")=="TRUE")
-          .select(["Review_Title", "Review", "Overall_Rating", "Verified", "Airline Name"])
-          .sort(["Airline Name", "Overall_Rating"])
-          .collect()
-      )
+    # Create ids, documents, and metadatas data in the format ChromaDB expects
+    ids = [f"review{i}" for i in range(airline_review_db_data.shape[0])]
+    documents = airline_review_db_data["Review"].to_list()
+    metadatas = airline_review_db_data.drop("Review").to_dicts()
 
-      # Create ids, documents, and metadatas data in the format ChromaDB expects
-      ids = [f"review{i}" for i in range(airline_review_db_data.shape[0])]
-      documents = airline_review_db_data["Review"].to_list()
-      metadatas = airline_review_db_data.drop("Review").to_dicts()
+    return {"ids": ids, "documents": documents, "metadatas": metadatas}
 
-      return {"ids": ids, "documents": documents, "metadatas": metadatas}
-
-    except Exception as e:
-        logging.error(f"Error preparing car reviews data: {e}")
-        return {"ids": [], "documents": [], "metadatas": []}
+  except Exception as e:
+    logging.error(f"Error preparing car reviews data: {e}")
+    return {"ids": [], "documents": [], "metadatas": []}
     
 def build_chroma_collection(
-    chroma_path: pathlib.Path,
-    collection_name: str,
-    embedding_func_name: str,
-    ids: list[str],
-    documents: list[str],
-    metadatas: list[dict],
-    distance_func_name: str = "cosine",
-    ):
-    """Create a ChromaDB collection"""
+  chroma_path: pathlib.Path,
+  collection_name: str,
+  embedding_func_name: str,
+  ids: list[str],
+  documents: list[str],
+  metadatas: list[dict],
+  distance_func_name: str = "cosine",
+  ):
+  """Create a ChromaDB collection"""
 
-    chroma_client = chromadb.PersistentClient(chroma_path)
+  chroma_client = chromadb.PersistentClient(chroma_path)
 
-    embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name=embedding_func_name
+  embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
+    model_name=embedding_func_name
+  )
+
+  collection = chroma_client.create_collection(
+    name=collection_name,
+    embedding_function=embedding_func,
+    metadata={"hnsw:space": distance_func_name},
+  )
+
+  document_indices = list(range(len(documents)))
+
+  for batch in batched(document_indices, 166):
+    start_idx = batch[0]
+    end_idx = batch[-1] + 1 
+
+    collection.add(
+      ids=ids[start_idx:end_idx],
+      documents=documents[start_idx:end_idx],
+      metadatas=metadatas[start_idx:end_idx],
     )
-
-    collection = chroma_client.create_collection(
-        name=collection_name,
-        embedding_function=embedding_func,
-        metadata={"hnsw:space": distance_func_name},
-    )
-
-    document_indices = list(range(len(documents)))
-
-    for batch in batched(document_indices, 166):
-        start_idx = batch[0]
-        end_idx = batch[-1] + 1 
-
-        collection.add(
-            ids=ids[start_idx:end_idx],
-            documents=documents[start_idx:end_idx],
-            metadatas=metadatas[start_idx:end_idx],
-        )
 
 chroma_car_reviews_dict = prepare_airline_reviews_data(DATA_PATH)
 
@@ -188,8 +188,8 @@ chroma_car_reviews_dict = prepare_airline_reviews_data(DATA_PATH)
 
 client = chromadb.PersistentClient(CHROMA_PATH)
 embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
-        model_name=EMBEDDING_FUNC_NAME
-    )
+  model_name=EMBEDDING_FUNC_NAME
+)
 collection = client.get_collection(name=COLLECTION_NAME, embedding_function=embedding_func)
 
 # Retrieve all reviews in batches to create a comprehensive context
@@ -200,9 +200,9 @@ current_start = 0
 
 logging.info("Beginning to query collection")
 reviews = collection.query(
-    query_texts=["Great reviews about EVA Airway"],
-    n_results=100,
-    include=["documents", "metadatas"],
+  query_texts=["Great reviews about EVA Airway"],
+  n_results=100,
+  include=["documents", "metadatas"],
 )
 
 reviews_str = ",".join(reviews["documents"][0])
