@@ -156,6 +156,7 @@ def build_chroma_collection(
 # print(f"finished building chroma at {t1}")
 # total = t1-t0
 # print(total)
+
 try:
   client = chromadb.PersistentClient(CHROMA_PATH)
   embedding_func = embedding_functions.SentenceTransformerEmbeddingFunction(
@@ -170,27 +171,24 @@ reviews = []
 batch_size = 1000  # Adjust the batch size based on the dataset size and memory limits
 current_start = 0
 
-print("Begin to query the collection.")
-input1 = "Postive reviews about Volvo"
+input1 = "Postive reviews about Porsche"
 reviews = collection.query(
     query_texts=[input1],
     n_results=100,
-    include=["documents"],
-    where={"Rating": {"$gte": 1}},
-)
+    include=["documents", "metadatas"],)
 
 reviews_str = ",".join(reviews["documents"][0])
-print("Finished querying the collection.")
+metadata = str(reviews["metadatas"][0])
 
-question = "Recommend me a Volvo model if I want to prioritize comfort."
+question = "Recommend me three Porsche car models based on reviews"
 
 context = f"""
-You are a customer success employee at a large car dealership. 
-Use the following car reviews to answer questions: {reviews_str}. 
+You are a customer support employee at a large car dealership. 
+Use the following car reviews to answer questions: {reviews_str} and its metadata: {metadata}. 
 You may summarize or rank the data if the question asked you to do so.
 You can only use the reviews provided to you to answer the question.
 You may start your answers with a short summary consists of 1 to 3 sentences. 
-You should provide snippets from top 5 reviews you used to answer as proofs.  
+You should provide snippets from top 5 reviews and its metadat you used to answer as proofs.  
 You should not generate new reviews. 
 Ensure the reviews you used support your argument. 
 """

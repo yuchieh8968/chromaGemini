@@ -78,7 +78,7 @@ def extract_year(date_str: str) -> int:
         print(f"Error parsing date: {date_str}, Error: {e}")
         return None
 
-def prepare_airline_reviews_data(data_path: pathlib.Path, flight_years: list[int] = [2017]):
+def prepare_airline_reviews_data(data_path: pathlib.Path):
     """Prepare the airline reviews dataset for ChromaDB"""
 
     # Define the schema to ensure proper data types are enforced
