@@ -1,3 +1,13 @@
 *.csv
-/*
 .env
+__pycache__
+/archieve
+car_review_embeddings/
+flight_review_embeddings/
+*.bmp
+*.png
+/ollama
+/chroma_db
+imggemini.py
+pineconeTest.py
+
